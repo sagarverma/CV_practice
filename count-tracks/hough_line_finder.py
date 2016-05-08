@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import signal, ndimage
 import cv2
+from math import ceil, floor, cos, sin
 
 fin = open('samples/sampleTest1.txt','r')
 
@@ -98,6 +99,9 @@ for i in range(1,r-1):
 
 cv2.imwrite('non_max_supp.jpg',non_max_supp)
 
+
+#Edge tracking by hysteresis
+
 maxx = np.max(non_max_supp)
 th = 0.2*maxx
 tl = 0.1*maxx
@@ -133,3 +137,33 @@ for i in range(1, r-10):
             traverse(i, j)
 
 cv2.imwrite('canney_edge_detected.jpg',gnh)
+
+
+#Hough Transform
+dmin = int(ceil(-1 * max(r,c) * np.sqrt(2)))
+dmax = -1 * dmin
+thetamin = 0
+thetamax = 90
+
+#print dmin, dmax
+
+thetabins = (thetamax - thetamin + 1) / 1
+dbins = int(ceil((dmax - dmin + 1) / 2))
+
+accumulator = np.zeros((dbins,thetabins))
+
+#print accumulator.shape
+
+for i in range(r):
+    for j in range(c):
+        if gnh[i][j]:
+            for theta_j in range(91):
+                d = i * cos(theta_j * np.pi / 180) - j * sin(theta_j * np.pi / 180)
+                #print d
+                d = int(ceil((d + dmax)/2))
+                #print d
+                accumulator[d ,theta_j] += 1
+
+cv2.imwrite('accumulator.jpg',accumulator)
+
+
