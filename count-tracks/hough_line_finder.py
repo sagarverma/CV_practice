@@ -21,7 +21,7 @@ gray_img = 0.299 * img[:,:,0] + 0.587 * img[:,:,1] + 0.114 * img[:,:,2]
 
 #cv2.imwrite('gray.jpg',gray_img)
 
-#gaussian parameters
+#gaussian filter
 sig = 1.4
 k = 2
 gaussian_filter = []
@@ -39,3 +39,20 @@ gaussian_filter = np.asarray(gaussian_filter)
 smoother_gray_image = signal.convolve2d(gray_img,gaussian_filter,boundary='symm',mode='same')
 
 #cv2.imwrite('smoother_gray_image.jpg',smoother_gray_image)
+
+#Finding the intensity gradient of the image using Sobel operator
+
+x_filter = [[-1,0,1],[-2,0,2],[-1,0,1]]
+x_filter = np.asarray(x_filter)
+y_filter = x_filter.T
+
+G_x = signal.convolve2d(smoother_gray_image, x_filter, boundary='symm', mode='same')
+G_y = signal.convolve2d(smoother_gray_image, y_filter, boundary='symm', mode='same')
+
+#cv2.imwrite('G_x.jpg',G_x)
+#cv2.imwrite('G_y.jpg',G_y)
+
+G = np.sqrt(np.square(G_x) + np.square(G_y))
+theta = np.arctan2(G_y,G_x)
+
+cv2.imwrite('G.jpg',G)
