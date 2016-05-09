@@ -3,6 +3,7 @@ from scipy import signal, ndimage
 import cv2
 from math import ceil, floor, cos, sin
 
+
 fin = open('samples/sampleTest1.txt','r')
 
 r,c = map(int, fin.readline().split())
@@ -20,9 +21,24 @@ img = np.asarray(img, dtype=np.uint8)
 
 cv2.imwrite('color.jpg',img)
 
+
+#img = cv2.imread('line1.png',1)
+#r,c = img.shape[:2]
+
 gray_img = 0.299 * img[:,:,0] + 0.587 * img[:,:,1] + 0.114 * img[:,:,2]
 
 cv2.imwrite('gray.jpg',gray_img)
+
+#Contrast change
+
+for i in range(r):
+    for j in range(c):
+        if gray_img[i][j] < 127:
+            gray_img[i][j] =0
+        else:
+            gray_img[i][j] = 255
+
+cv2.imwrite('gray_img_increase_bright.jpg',gray_img)
 
 #gaussian filter
 sig = 3.0
@@ -39,7 +55,7 @@ gaussian_filter = np.asarray(gaussian_filter)
 
 #print gaussian_filter
 
-smoother_gray_image = signal.convolve2d(gray_img,gaussian_filter,boundary='symm',mode='same')
+smoother_gray_image = signal.convolve2d(gray_img,gaussian_filter,boundary='fill',mode='same')
 
 #print smoother_gray_image.shape
 #print img.shape
@@ -48,15 +64,15 @@ cv2.imwrite('smoother_gray_image.jpg',smoother_gray_image)
 
 #Finding the intensity gradient of the image using Sobel operator
 
-x_filter = [[-1,0,1],[-2,0,2],[-1,0,1]]
+x_filter = [[-1,0,1],[-1,0,1],[-1,0,1]]
 x_filter = np.asarray(x_filter)
 y_filter = x_filter.T
 
-G_x = signal.convolve2d(smoother_gray_image, x_filter, boundary='symm', mode='same')
-G_y = signal.convolve2d(smoother_gray_image, y_filter, boundary='symm', mode='same')
+G_x = signal.convolve2d(smoother_gray_image, x_filter, boundary='fill', mode='same')
+G_y = signal.convolve2d(smoother_gray_image, y_filter, boundary='fill', mode='same')
 
-#cv2.imwrite('G_x.jpg',G_x)
-#cv2.imwrite('G_y.jpg',G_y)
+cv2.imwrite('G_x.jpg',G_x)
+cv2.imwrite('G_y.jpg',G_y)
 
 G = np.sqrt(np.square(G_x) + np.square(G_y))
 theta = np.arctan2(G_y,G_x)
@@ -130,40 +146,76 @@ def traverse(i, j):
             traverse(i+x[k], j+y[k])
 
 
-for i in range(1, r-10):
-    for j in range(1, c-10):
+for i in range(1, r-50):
+    for j in range(1, c-50):
         if gnh[i][j]:
             gnh[i][j]=255
             traverse(i, j)
+
+for i in range(r):
+    for j in range(c):
+        if gnh[i][j] < 255:
+            gnh[i][j] = 0
 
 cv2.imwrite('canney_edge_detected.jpg',gnh)
 
 
 #Hough Transform
-dmin = int(ceil(-1 * max(r,c) * np.sqrt(2)))
+dmin = int(ceil(-1 * max(r,c) * 2))
 dmax = -1 * dmin
 thetamin = 0
-thetamax = 90
+thetamax = 180
 
 #print dmin, dmax
 
 thetabins = (thetamax - thetamin + 1) / 1
-dbins = int(ceil((dmax - dmin + 1) / 2))
+dbins = int(ceil((dmax - dmin + 1) / 1))
 
 accumulator = np.zeros((dbins,thetabins))
 
 #print accumulator.shape
-
 for i in range(r):
     for j in range(c):
         if gnh[i][j]:
-            for theta_j in range(91):
+            for theta_j in range(181):
                 d = i * cos(theta_j * np.pi / 180) - j * sin(theta_j * np.pi / 180)
                 #print d
-                d = int(ceil((d + dmax)/2))
+                d = int(ceil((d + dmax)/1))
                 #print d
-                accumulator[d ,theta_j] += 1
-
+                accumulator[d ,int(ceil(theta_j/1))] += 1
+                
 cv2.imwrite('accumulator.jpg',accumulator)
 
 
+smoother_accumulator = signal.convolve2d(accumulator,gaussian_filter,boundary='fill',mode='same')
+
+cv2.imwrite('smoother_accumulator.jpg',smoother_accumulator)
+
+d_found,theta_found = 0,0
+print np.max(smoother_accumulator)
+maxx = int(np.max(smoother_accumulator))
+for i in range(smoother_accumulator.shape[0]):
+    #print i
+    for j in range(smoother_accumulator.shape[1]):
+        if smoother_accumulator[i][j] < maxx -5:
+            smoother_accumulator[i][j] = 0
+        else:
+            smoother_accumulator[i][j] = 255
+            d_found = i - dmax
+            theta_found = j
+
+cv2.imwrite('points_in_polar_space.jpg',smoother_accumulator)
+
+print d_found, theta_found
+
+new_img = np.ones((r,c,3))
+
+new_img *= 255
+
+for i in range(r):
+    for j in range(c):
+        if d_found >= int(i * cos(theta_found * np.pi / 180) - j * sin(theta_found * np.pi / 180)) - 1 and d_found <= int(i * cos(theta_found * np.pi / 180) - j * sin(theta_found * np.pi / 180)) + 1:
+            #print True
+            new_img[i,j,1] = 0
+
+cv2.imwrite('new_img.jpg',new_img)
